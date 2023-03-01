@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/quic-go/quic-go/http3"
 	"github.com/valyala/fasthttp"
 	"golang.org/x/net/http2"
 )
@@ -144,6 +145,34 @@ func newHTTPClient(opts *clientOpts) client {
 		tr.TLSNextProto = make(
 			map[string]func(authority string, c *tls.Conn) http.RoundTripper,
 		)
+	}
+
+	cl := &http.Client{
+		Transport: tr,
+		Timeout:   opts.timeout,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	c.client = cl
+
+	c.headers = headersToHTTPHeaders(opts.headers)
+	c.method, c.body, c.bodProd = opts.method, opts.body, opts.bodProd
+	var err error
+	c.url, err = url.Parse(opts.url)
+	if err != nil {
+		// opts.url guaranteed to be valid at this point
+		panic(err)
+	}
+
+	return client(c)
+}
+
+func newQUICClient(opts *clientOpts) client {
+	c := new(httpClient)
+
+	tr := &http3.RoundTripper{
+		TLSClientConfig: opts.tlsConfig,
 	}
 
 	cl := &http.Client{

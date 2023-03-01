@@ -150,6 +150,12 @@ func newKingpinParser() argsParser {
 			return nil
 		}).
 		Bool()
+	app.Flag("quic", "Use QUIC client").
+		Action(func(*kingpin.ParseContext) error {
+			kparser.clientType = qhttp
+			return nil
+		}).
+		Bool()
 
 	app.Flag(
 		"print", "Specifies what to output. Comma-separated list of values"+

@@ -10,7 +10,7 @@ import (
 type config struct {
 	numConns                       uint64
 	numReqs                        *uint64
-	disableKeepAlives         bool
+	disableKeepAlives              bool
 	duration                       *time.Duration
 	url, method, certPath, keyPath string
 	body, bodyFilePath             string
@@ -164,6 +164,7 @@ const (
 	fhttp clientTyp = iota
 	nhttp1
 	nhttp2
+	qhttp
 )
 
 func (ct clientTyp) String() string {
@@ -174,6 +175,8 @@ func (ct clientTyp) String() string {
 		return "net/http v1.x"
 	case nhttp2:
 		return "net/http v2.0"
+	case qhttp:
+		return "QUIC"
 	}
 	return "unknown client"
 }

@@ -167,6 +167,8 @@ func makeHTTPClient(clientType clientTyp, cc *clientOpts) client {
 	case nhttp2:
 		cc.HTTP2 = true
 		cl = newHTTPClient(cc)
+	case qhttp:
+		cl = newQUICClient(cc)
 	case fhttp:
 		fallthrough
 	default:
