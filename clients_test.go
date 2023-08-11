@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"sync/atomic"
 	"testing"
-	"time"
 )
 
 func TestShouldReturnNilIfNoHeadersWhereSet(t *testing.T) {
@@ -59,40 +58,30 @@ func TestShouldProperlyConvertToHttpHeaders(t *testing.T) {
 func TestHTTP2Client(t *testing.T) {
 	responseSize := 1024
 	response := bytes.Repeat([]byte{'a'}, responseSize)
-	url := "localhost:8443"
-	s := &http.Server{
-		Addr: url,
-		Handler: http.HandlerFunc(
-			func(w http.ResponseWriter, r *http.Request) {
-				if !r.ProtoAtLeast(2, 0) {
-					t.Errorf("invalid HTTP proto version: %v", r.Proto)
-				}
+	s := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !r.ProtoAtLeast(2, 0) {
+			t.Errorf("invalid HTTP proto version: %v", r.Proto)
+		}
 
-				w.WriteHeader(http.StatusOK)
-				_, err := w.Write(response)
-				if err != nil {
-					t.Error(err)
-				}
-			},
-		),
-		TLSConfig: &tls.Config{
-			NextProtos: []string{"http/2.0"},
-		},
+		w.WriteHeader(http.StatusOK)
+		_, err := w.Write(response)
+		if err != nil {
+			t.Error(err)
+		}
+	}))
+	s.EnableHTTP2 = true
+	s.TLS = &tls.Config{
+		InsecureSkipVerify: true,
 	}
-	errChan := make(chan error)
-	go func() {
-		err := s.ListenAndServeTLS("testserver.cert", "testserver.key")
-		errChan <- err
-	}()
+	s.StartTLS()
+	defer s.Close()
 
-	// TODO(codesenberg): this should be fixed later
-	time.Sleep(100 * time.Millisecond)
 	bytesRead, bytesWritten := int64(0), int64(0)
 	c := newHTTPClient(&clientOpts{
 		HTTP2: true,
 
 		headers: new(headersList),
-		url:     "https://" + url,
+		url:     s.URL,
 		method:  "GET",
 		tlsConfig: &tls.Config{
 			InsecureSkipVerify: true,
@@ -116,13 +105,6 @@ func TestHTTP2Client(t *testing.T) {
 	}
 	if atomic.LoadInt64(&bytesWritten) == 0 {
 		t.Errorf("empty request of size: %v", bytesWritten)
-	}
-	err = s.Close()
-	if err != nil {
-		t.Error(err)
-	}
-	if err := <-errChan; err != http.ErrServerClosed {
-		t.Error(err)
 	}
 }
 
